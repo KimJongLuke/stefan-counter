@@ -162,7 +162,7 @@ const CostCounter = () => {
       <div className="w-full max-w-4xl mx-auto bg-gray-900 rounded-lg border border-gray-800 overflow-hidden">
         <div className="p-6 text-center">
           <h1 className="text-4xl font-bold text-red-500 mb-2">
-            STEFAN'S ETERNAL STUDENT DEBT
+            STEFAN'S ETERNAL STUDENT COSTS
           </h1>
           <p className="text-gray-400">The Bachelor Degree That Never Ends</p>
           <p className="text-sm text-gray-500">Draining Money Since: August 2017</p>
