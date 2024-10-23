@@ -28,11 +28,11 @@ const StatCard = ({ icon: Icon, title, value }) => (
   </div>
 );
 
-const AlternativeSpending = ({ cost, item, icon: Icon }) => (
+const AlternativeSpending = ({ cost, item, icon: Icon, formatter = Math.floor }) => (
   <div className="flex items-center gap-3 bg-gray-800 p-3 rounded-lg">
     <Icon className="text-red-500" size={20} />
     <div className="text-gray-300">
-      ≈ {Math.floor(cost)} {item}
+      ≈ {formatter(cost)} {item}
     </div>
   </div>
 );
@@ -51,51 +51,29 @@ const CostCounter = () => {
   const [previousNumber, setPreviousNumber] = useState(formatNumber(0));
   const startDate = new Date(2017, 7, 1); // August 1, 2017
   const monthlyRate = 270; // 270€ per month
-  
+
   useEffect(() => {
-    let lastUpdate = 0;
-    
     const calculateCost = () => {
       const now = new Date();
-      const timeDiff = now - startDate;
+      const timeDiffMs = now.getTime() - startDate.getTime();
+      const timeDiffSecs = timeDiffMs / 1000;
       
-      // Calculate complete months
-      const monthsPassed = (now.getFullYear() - startDate.getFullYear()) * 12 
-        + (now.getMonth() - startDate.getMonth());
-      
-      // Calculate days in current month
-      const currentMonthDays = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-      const dayInCurrentMonth = now.getDate();
-      const currentMonthProgress = dayInCurrentMonth / currentMonthDays;
-      
-      // Calculate total cost
-      const completeMonthsCost = monthsPassed * monthlyRate;
-      const currentMonthCost = monthlyRate * currentMonthProgress;
-      
-      // Add millisecond precision
-      const millisecondsInMonth = currentMonthDays * 24 * 60 * 60 * 1000;
-      const millisecondCost = monthlyRate / millisecondsInMonth;
-      const extraMilliseconds = now.getTime() % (24 * 60 * 60 * 1000); // Milliseconds since midnight
-      const millisecondProgress = extraMilliseconds * millisecondCost;
-      
-      const newTotal = completeMonthsCost + currentMonthCost + millisecondProgress;
-      
-      // Only update if the value has changed significantly (more than 0.01€)
-      if (Math.abs(newTotal - lastUpdate) >= 0.01) {
-        setPreviousNumber(formatNumber(totalCost));
-        setTotalCost(newTotal);
-        lastUpdate = newTotal;
-      }
+      // Calculate costs
+      const secondRate = monthlyRate / (30 * 24 * 60 * 60); // Cost per second
+      const newTotal = timeDiffSecs * secondRate;
+
+      setPreviousNumber(formatNumber(totalCost));
+      setTotalCost(newTotal);
     };
 
-    // Initial calculation
+    // Run immediately
     calculateCost();
     
-    // Update every 50ms
-    const interval = setInterval(calculateCost, 50);
+    // Update every 100ms
+    const interval = setInterval(calculateCost, 100);
     
     return () => clearInterval(interval);
-  }, []); // Empty dependency array
+  }, []); // Empty dependency array for continuous updates
 
   const now = new Date();
   const monthsPassed = (now.getFullYear() - startDate.getFullYear()) * 12 
@@ -103,6 +81,9 @@ const CostCounter = () => {
   const daysPassed = Math.floor((now - startDate) / (1000 * 60 * 60 * 24));
   const normalStudyDuration = 6; // semesters
   const semestersPassed = monthsPassed / 6;
+
+  const monthlyRent = 600; // Stefan's apartment rent
+  const rentMonths = totalCost / monthlyRent; // How many months of rent could be paid
   
   const { groups, decimal } = formatNumber(totalCost);
   const prevGroups = previousNumber.groups;
@@ -176,15 +157,16 @@ const CostCounter = () => {
 
           {/* Alternative Spending Section */}
           <div className="mt-8">
-            <h3 className="text-red-500 text-xl mb-4 text-center">Instead, Stefan could have bought:</h3>
+            <h3 className="text-red-500 text-xl mb-4 text-center">Instead, Stefan could have paid:</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <AlternativeSpending 
-                cost={totalCost / 3} 
-                item="months of rent in a luxury apartment"
+                cost={rentMonths}
+                item="months of rent for his apartment (600€/month)"
                 icon={Home}
+                formatter={(num) => num.toFixed(1)}
               />
               <AlternativeSpending 
-                cost={totalCost / 2.5} 
+                cost={totalCost / 3.5} 
                 item="cappuccinos"
                 icon={Coffee}
               />
