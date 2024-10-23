@@ -1,15 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Clock, Coffee, Car, Plane, Home } from 'lucide-react';
 
-const formatNumber = (num) => {
-  const [whole, decimal] = num.toFixed(2).split('.');
-  const groups = [];
-  for (let i = whole.length; i > 0; i -= 3) {
-    groups.unshift(whole.slice(Math.max(0, i - 3), i));
-  }
-  return { groups, decimal };
-};
-
 const NumberCard = ({ children, previousValue = '0' }) => {
   const hasChanged = previousValue !== children;
   
@@ -46,15 +37,68 @@ const AlternativeSpending = ({ cost, item, icon: Icon, formatter = Math.floor })
   </div>
 );
 
-const CentProgress = ({ totalCost }) => {
-  const [progress, setProgress] = useState(0);
+const formatNumber = (num) => {
+  const [whole, decimal] = num.toFixed(2).split('.');
+  const groups = [];
+  for (let i = whole.length; i > 0; i -= 3) {
+    groups.unshift(whole.slice(Math.max(0, i - 3), i));
+  }
+  return { groups, decimal };
+};
+
+const calculateExactCost = (startDate, monthlyRate) => {
+  const now = new Date();
   
+  // Calculate exact years and months
+  let years = now.getFullYear() - startDate.getFullYear();
+  let months = now.getMonth() - startDate.getMonth();
+  if (months < 0) {
+    years--;
+    months += 12;
+  }
+  
+  // Calculate days in current month
+  const currentMonthDays = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  const startDay = startDate.getDate();
+  const currentDay = now.getDate();
+  
+  // Adjust for partial months
+  if (currentDay < startDay) {
+    months--;
+    const prevMonthDays = new Date(now.getFullYear(), now.getMonth(), 0).getDate();
+    const daysInPrevMonth = prevMonthDays - startDay + currentDay + 1;
+    months += daysInPrevMonth / prevMonthDays;
+  } else {
+    const daysInMonth = currentDay - startDay + 1;
+    months += daysInMonth / currentMonthDays;
+  }
+  
+  const totalMonths = years * 12 + months;
+  
+  // Calculate millisecond-precise additional time
+  const millisInDay = 24 * 60 * 60 * 1000;
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const millisToday = now - todayStart;
+  const dailyRate = monthlyRate / currentMonthDays;
+  const millisRate = dailyRate / millisInDay;
+  
+  const baseCost = totalMonths * monthlyRate;
+  const todayCost = millisToday * millisRate;
+  
+  return baseCost + todayCost;
+};
+
+const CentProgress = ({ totalCost, onComplete }) => {
+  // Calculate exact progress to next cent
+  const fraction = totalCost % 0.01;
+  const progress = (fraction / 0.01) * 100;
+  
+  // Call onComplete when we reach 100%
   useEffect(() => {
-    // Calculate progress to next cent
-    const fraction = totalCost % 0.01;
-    const percentage = (fraction / 0.01) * 100;
-    setProgress(percentage);
-  }, [totalCost]);
+    if (progress >= 99.99) {
+      onComplete();
+    }
+  }, [progress, onComplete]);
 
   return (
     <div className="w-full max-w-md mx-auto mt-4">
@@ -77,29 +121,28 @@ const CostCounter = () => {
   const startDate = new Date(2017, 7, 1); // August 1, 2017
   const monthlyRate = 270; // 270€ per month
 
+  const updateCost = () => {
+    const newTotal = calculateExactCost(startDate, monthlyRate);
+    setTotalCost(newTotal);
+  };
+
+  // Handle cent completion
+  const handleCentComplete = () => {
+    setPreviousNumber(formatNumber(totalCost));
+    updateCost();
+  };
+
   useEffect(() => {
-    const calculateCost = () => {
-      const now = new Date();
-      const timeDiffMs = now.getTime() - startDate.getTime();
-      const timeDiffSecs = timeDiffMs / 1000;
-      
-      // Calculate costs
-      const secondRate = monthlyRate / (30 * 24 * 60 * 60); // Cost per second
-      const newTotal = timeDiffSecs * secondRate;
-
-      setPreviousNumber(formatNumber(totalCost));
-      setTotalCost(newTotal);
-    };
-
-    // Run immediately
-    calculateCost();
+    // Initial calculation
+    updateCost();
     
-    // Update every 50ms for smoother animation
-    const interval = setInterval(calculateCost, 50);
+    // Update every 50ms for smooth animation
+    const interval = setInterval(updateCost, 50);
     
     return () => clearInterval(interval);
-  }, []); // Empty dependency array for continuous updates
+  }, []);
 
+  // Calculate exact statistics
   const now = new Date();
   const monthsPassed = (now.getFullYear() - startDate.getFullYear()) * 12 
     + (now.getMonth() - startDate.getMonth());
@@ -107,8 +150,8 @@ const CostCounter = () => {
   const normalStudyDuration = 6; // semesters
   const semestersPassed = monthsPassed / 6;
 
-  const monthlyRent = 600; // Stefan's apartment rent
-  const rentMonths = totalCost / monthlyRent; // How many months of rent could be paid
+  const monthlyRent = 600;
+  const rentMonths = totalCost / monthlyRent;
   
   const { groups, decimal } = formatNumber(totalCost);
   const prevGroups = previousNumber.groups;
@@ -119,7 +162,7 @@ const CostCounter = () => {
       <div className="w-full max-w-4xl mx-auto bg-gray-900 rounded-lg border border-gray-800 overflow-hidden">
         <div className="p-6 text-center">
           <h1 className="text-4xl font-bold text-red-500 mb-2">
-            STEFAN'S ETERNAL STUDENT COSTS
+            STEFAN'S ETERNAL STUDENT DEBT
           </h1>
           <p className="text-gray-400">The Bachelor Degree That Never Ends</p>
           <p className="text-sm text-gray-500">Draining Money Since: August 2017</p>
@@ -161,7 +204,10 @@ const CostCounter = () => {
             </div>
             
             {/* Progress Bar */}
-            <CentProgress totalCost={totalCost} />
+            <CentProgress 
+              totalCost={totalCost} 
+              onComplete={handleCentComplete}
+            />
           </div>
 
           {/* Statistics Grid */}
