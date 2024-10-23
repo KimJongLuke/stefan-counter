@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Clock, Coffee, Car, Plane, Home } from 'lucide-react';
 
 const NumberCard = ({ children, previousValue = '0' }) => {
@@ -54,26 +53,50 @@ const CostCounter = () => {
   const monthlyRate = 270; // 270€ per month
   
   useEffect(() => {
-    const updateCost = () => {
+    let lastUpdate = 0;
+    
+    const calculateCost = () => {
       const now = new Date();
       const timeDiff = now - startDate;
+      
+      // Calculate complete months
       const monthsPassed = (now.getFullYear() - startDate.getFullYear()) * 12 
         + (now.getMonth() - startDate.getMonth());
-      const secondsPassed = timeDiff / 1000;
-      const dailyRate = monthlyRate / 30;
-      const secondRate = dailyRate / 24 / 60 / 60;
-      const newTotal = (monthsPassed * monthlyRate) + (secondsPassed * secondRate);
       
-      setPreviousNumber(formatNumber(totalCost));
-      setTotalCost(newTotal);
+      // Calculate days in current month
+      const currentMonthDays = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+      const dayInCurrentMonth = now.getDate();
+      const currentMonthProgress = dayInCurrentMonth / currentMonthDays;
+      
+      // Calculate total cost
+      const completeMonthsCost = monthsPassed * monthlyRate;
+      const currentMonthCost = monthlyRate * currentMonthProgress;
+      
+      // Add millisecond precision
+      const millisecondsInMonth = currentMonthDays * 24 * 60 * 60 * 1000;
+      const millisecondCost = monthlyRate / millisecondsInMonth;
+      const extraMilliseconds = now.getTime() % (24 * 60 * 60 * 1000); // Milliseconds since midnight
+      const millisecondProgress = extraMilliseconds * millisecondCost;
+      
+      const newTotal = completeMonthsCost + currentMonthCost + millisecondProgress;
+      
+      // Only update if the value has changed significantly (more than 0.01€)
+      if (Math.abs(newTotal - lastUpdate) >= 0.01) {
+        setPreviousNumber(formatNumber(totalCost));
+        setTotalCost(newTotal);
+        lastUpdate = newTotal;
+      }
     };
 
-    updateCost();
-    const interval = setInterval(updateCost, 50);
+    // Initial calculation
+    calculateCost();
+    
+    // Update every 50ms
+    const interval = setInterval(calculateCost, 50);
+    
     return () => clearInterval(interval);
-  }, [totalCost]);
+  }, []); // Empty dependency array
 
-  // Calculate various statistics
   const now = new Date();
   const monthsPassed = (now.getFullYear() - startDate.getFullYear()) * 12 
     + (now.getMonth() - startDate.getMonth());
@@ -87,15 +110,16 @@ const CostCounter = () => {
 
   return (
     <div className="min-h-screen bg-black p-8">
-      <Card className="w-full max-w-4xl mx-auto bg-gray-900 border-gray-800">
-        <CardHeader className="text-center">
-          <CardTitle className="text-4xl font-bold text-red-500 mb-2">
+      <div className="w-full max-w-4xl mx-auto bg-gray-900 rounded-lg border border-gray-800 overflow-hidden">
+        <div className="p-6 text-center">
+          <h1 className="text-4xl font-bold text-red-500 mb-2">
             STEFAN'S ETERNAL STUDENT DEBT
-          </CardTitle>
+          </h1>
           <p className="text-gray-400">The Bachelor Degree That Never Ends</p>
           <p className="text-sm text-gray-500">Draining Money Since: August 2017</p>
-        </CardHeader>
-        <CardContent className="space-y-8">
+        </div>
+        
+        <div className="p-6 space-y-8">
           {/* Counter */}
           <div className="flex flex-col items-center gap-8">
             <div className="flex flex-wrap justify-center items-center gap-2">
@@ -183,8 +207,8 @@ const CostCounter = () => {
               That's {(270 / 30 / 24 / 60 / 60).toFixed(6)}€ every second
             </div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   );
 };
