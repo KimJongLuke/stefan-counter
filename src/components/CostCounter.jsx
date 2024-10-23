@@ -1,6 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { Clock, Coffee, Car, Plane, Home } from 'lucide-react';
 
+const formatNumber = (num) => {
+  const [whole, decimal] = num.toFixed(2).split('.');
+  const groups = [];
+  for (let i = whole.length; i > 0; i -= 3) {
+    groups.unshift(whole.slice(Math.max(0, i - 3), i));
+  }
+  return { groups, decimal };
+};
+
 const NumberCard = ({ children, previousValue = '0' }) => {
   const hasChanged = previousValue !== children;
   
@@ -37,13 +46,29 @@ const AlternativeSpending = ({ cost, item, icon: Icon, formatter = Math.floor })
   </div>
 );
 
-const formatNumber = (num) => {
-  const [whole, decimal] = num.toFixed(2).split('.');
-  const groups = [];
-  for (let i = whole.length; i > 0; i -= 3) {
-    groups.unshift(whole.slice(Math.max(0, i - 3), i));
-  }
-  return { groups, decimal };
+const CentProgress = ({ totalCost }) => {
+  const [progress, setProgress] = useState(0);
+  
+  useEffect(() => {
+    // Calculate progress to next cent
+    const fraction = totalCost % 0.01;
+    const percentage = (fraction / 0.01) * 100;
+    setProgress(percentage);
+  }, [totalCost]);
+
+  return (
+    <div className="w-full max-w-md mx-auto mt-4">
+      <div className="bg-gray-800 h-2 rounded-full overflow-hidden">
+        <div 
+          className="bg-red-500 h-full transition-all duration-100 ease-linear"
+          style={{ width: `${progress}%` }}
+        />
+      </div>
+      <div className="text-gray-500 text-xs mt-1 text-center">
+        Progress to next cent: {progress.toFixed(1)}%
+      </div>
+    </div>
+  );
 };
 
 const CostCounter = () => {
@@ -69,8 +94,8 @@ const CostCounter = () => {
     // Run immediately
     calculateCost();
     
-    // Update every 100ms
-    const interval = setInterval(calculateCost, 100);
+    // Update every 50ms for smoother animation
+    const interval = setInterval(calculateCost, 50);
     
     return () => clearInterval(interval);
   }, []); // Empty dependency array for continuous updates
@@ -94,7 +119,7 @@ const CostCounter = () => {
       <div className="w-full max-w-4xl mx-auto bg-gray-900 rounded-lg border border-gray-800 overflow-hidden">
         <div className="p-6 text-center">
           <h1 className="text-4xl font-bold text-red-500 mb-2">
-            STEFAN'S ETERNAL STUDENT DEBT
+            STEFAN'S ETERNAL STUDENT COSTS
           </h1>
           <p className="text-gray-400">The Bachelor Degree That Never Ends</p>
           <p className="text-sm text-gray-500">Draining Money Since: August 2017</p>
@@ -134,6 +159,9 @@ const CostCounter = () => {
               </div>
               <div className="text-red-500 text-4xl ml-2">€</div>
             </div>
+            
+            {/* Progress Bar */}
+            <CentProgress totalCost={totalCost} />
           </div>
 
           {/* Statistics Grid */}
